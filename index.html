@@ -29,7 +29,7 @@
 </head>
 <body>
     <h1>Ritaglia Etichetta UPS per Dymo 4XL (104×159 mm)</h1>
-    <p>Trascina il PDF A4 qui (o clicca per selezionare)</p>
+    <p>Trascina il PDF A4 qui sotto (o clicca per selezionare)</p>
 
     <div id="dropZone">
         <p>Trascina il file PDF qui<br>o clicca per sfogliare</p>
@@ -47,35 +47,31 @@
         let selectedFile = null;
 
         // Drag & drop
-        ['dragover', 'dragenter'].forEach(evt => {
-            dropZone.addEventListener(evt, e => {
-                e.preventDefault();
-                dropZone.classList.add('dragover');
-            });
-        });
+        ['dragover', 'dragenter'].forEach(evt => dropZone.addEventListener(evt, e => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        }));
 
-        ['dragleave', 'drop'].forEach(evt => {
-            dropZone.addEventListener(evt, e => {
-                e.preventDefault();
-                dropZone.classList.remove('dragover');
-            });
-        });
+        ['dragleave', 'drop'].forEach(evt => dropZone.addEventListener(evt, e => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        }));
 
         dropZone.addEventListener('drop', e => {
             selectedFile = e.dataTransfer.files[0];
-            handleFileSelect();
+            handleFile();
         });
 
         dropZone.addEventListener('click', () => fileInput.click());
 
         fileInput.addEventListener('change', e => {
             selectedFile = e.target.files[0];
-            handleFileSelect();
+            handleFile();
         });
 
-        function handleFileSelect() {
+        function handleFile() {
             if (selectedFile && selectedFile.type === 'application/pdf') {
-                status.textContent = `File caricato: ${selectedFile.name}`;
+                status.textContent = `File pronto: ${selectedFile.name}`;
                 processBtn.disabled = false;
             } else {
                 status.textContent = 'Carica un PDF valido!';
@@ -91,33 +87,31 @@
             try {
                 const arrayBuffer = await selectedFile.arrayBuffer();
                 const srcDoc = await PDFLib.PDFDocument.load(arrayBuffer);
-                if (srcDoc.getPageCount() === 0) throw new Error('PDF senza pagine');
 
                 const tgtDoc = await PDFLib.PDFDocument.create();
 
-                // Embed della pagina originale (modo corretto per drawPage)
-                const [embeddedPage] = await tgtDoc.embedPdfPages(srcDoc, [0]);
+                // Embedda la pagina 0 del PDF sorgente → restituisce PDFEmbeddedPage[]
+                const embeddedPages = await tgtDoc.embedPdf(arrayBuffer);  // o srcDoc se preferisci
+                const embeddedPage = embeddedPages[0];  // prendiamo la prima (e unica) pagina
 
-                // Dimensioni target in punti
+                // Dimensioni target in punti (104 mm × 159 mm)
                 const mmToPt = 2.83464567;
                 const tgtWidth  = 104 * mmToPt;   // ≈294.8 pt
                 const tgtHeight = 159 * mmToPt;   // ≈450.7 pt
 
-                // Altezza approssimativa dell'etichetta (bottom part) - REGOLA QUI
-                const labelHeightPt = 480;  // Prova 460-520 se il crop non è perfetto
+                // Altezza stimata della parte bassa da tenere (regola questo valore!)
+                const labelHeightPt = 480;  // ← Prova tra 450 e 520 se non centra bene
 
-                // Scala basata su larghezza A4 (595 pt) e altezza etichetta
-                const srcWidth = embeddedPage.width;   // 595
-                const scale = Math.min(tgtWidth / srcWidth, tgtHeight / labelHeightPt);
+                // Calcolo scala (basato su larghezza A4 595 pt)
+                const scale = Math.min(tgtWidth / 595, tgtHeight / labelHeightPt);
+                if (!isFinite(scale) || scale <= 0) throw new Error('Scala non valida');
 
-                if (!isFinite(scale) || scale <= 0) throw new Error('Errore nel calcolo della scala');
-
-                const scaledWidth  = srcWidth * scale;
+                const scaledWidth  = 595 * scale;
                 const scaledHeight = labelHeightPt * scale;
 
-                // Posizionamento: centra X, sposta verso il basso per mostrare solo bottom
+                // Posizionamento: centra X, sposta in basso per mostrare solo la parte etichetta
                 const drawX = (tgtWidth - scaledWidth) / 2;
-                const drawY = tgtHeight - scaledHeight;  // negativo o basso → crop virtuale top
+                const drawY = tgtHeight - scaledHeight;   // questo "taglia" virtualmente la parte alta
 
                 const newPage = tgtDoc.addPage([tgtWidth, tgtHeight]);
 
@@ -131,10 +125,10 @@
                 const pdfBytes = await tgtDoc.save();
                 download(pdfBytes, 'etichetta_ritagliata_104x159.pdf', 'application/pdf');
 
-                status.textContent = 'Fatto! File scaricato. Apri e stampa con "Dimensione reale" (Actual Size) sulla Dymo.';
+                status.textContent = 'Successo! Etichetta scaricata. Stampa con "Actual Size" sulla Dymo.';
             } catch (err) {
-                console.error('Errore dettagliato:', err);
-                status.textContent = 'Errore: ' + (err.message || 'Problema sconosciuto – premi F12 e guarda Console');
+                console.error(err);
+                status.textContent = 'Errore: ' + (err.message || 'Controlla console (F12)');
             } finally {
                 processBtn.disabled = false;
             }

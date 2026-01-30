@@ -1,0 +1,15 @@
+<script src="https://unpkg.com/pdf-lib"></script>
+<script>
+  async function cropPdf(pdfBytes) {
+    const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+    const pages = pdfDoc.getPages();
+    const firstPage = pages[0];
+
+    // Imposta la dimensione dell'etichetta Dymo (104mm x 159mm in punti)
+    // 1 mm = 2.83 punti circa
+    firstPage.setCropBox(50, 450, 295, 450); // Coordinate da calibrare sul tuo PDF
+
+    const savedBytes = await pdfDoc.save();
+    // Funzione per scaricare il file...
+  }
+</script>

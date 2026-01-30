@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Etichette Ottica Paoletti</title>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://unpkg.com/downloadjs@1.4.7/download.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        input, button { margin: 20px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Carica il PDF UPS A4</h1>
+    <p>Trascina o seleziona il file PDF, poi premi "Taglia" per scaricare l'etichetta 104x159mm.</p>
+    <input type="file" id="pdfInput" accept=".pdf">
+    <button onclick="processPdf()">Taglia</button>
+
+    <script>
+        async function processPdf() {
+            const file = document.getElementById('pdfInput').files[0];
+            if (!file) return alert('Carica un PDF prima!');
+
+            const arrayBuffer = await file.arrayBuffer();
+            const inputDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+
+            // Crea un nuovo PDF
+            const outputDoc = await PDFLib.PDFDocument.create();
+
+            // Embed della pagina originale (solo la prima)
+            const [embeddedPage] = await outputDoc.embedPdfPages(inputDoc, [0]);
+
+            // Dimensioni originali A4 in punti (pt): 595x842
+            // Crop del label: bottom 442pt (basato sul tuo esempio, da y=400 a 842 in coord screen)
+            // In coord PDF: crop box [0, 0, 595, 442]
+            const cropWidth = 595;
+            const cropHeight = 442;
+
+            // Target: 104mm x 159mm ≈ 294pt x 450pt (portrait)
+            const targetWidth = 294;
+            const targetHeight = 450;
+
+            // Aggiungi una nuova pagina nel target size
+            const newPage = outputDoc.addPage([targetWidth, targetHeight]);
+
+            // Calcola scala per fit dopo rotazione 90° (original wide diventa high)
+            const rotatedOrigWidth = cropHeight; // dopo rotate, width = old height
+            const rotatedOrigHeight = cropWidth; // height = old width
+            const scale = Math.min(targetWidth / rotatedOrigWidth, targetHeight / rotatedOrigHeight);
+
+            // Dimensioni dopo scala
+            const scaledWidth = rotatedOrigWidth * scale;
+            const scaledHeight = rotatedOrigHeight * scale;
+
+            // Centra verticalmente (x=0, y = (targetHeight - scaledHeight)/2)
+            const x = 0;
+            const y = (targetHeight - scaledHeight) / 2;
+
+            // Disegna la pagina embedded con crop implicito (PDF-LIB draw usa crop box se set), rotate 90° clockwise
+            newPage.drawPage(embeddedPage, {
+                x,
+                y,
+                xScale: scale,
+                yScale: scale,
+                rotate: PDFLib.degrees(90),
+            });
+
+            // Salva e scarica
+            const pdfBytes = await outputDoc.save();
+            download(pdfBytes, 'etichetta_104x159.pdf', 'application/pdf');
+        }
+    </script>
+</body>
+</html>

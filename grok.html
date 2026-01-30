@@ -7,57 +7,163 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        /* Il tuo CSS originale – invariato per mantenere il look bello */
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); min-height:100vh; padding:20px; display:flex; justify-content:center; align-items:center; }
-        .container { background:white; border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,0.3); max-width:900px; width:100%; padding:40px; }
-        h1 { color:#333; margin-bottom:20px; font-size:28px; display:flex; align-items:center; }
-        .header-compact { display:flex; justify-content:space-between; align-items:center; margin-bottom:25px; flex-wrap:wrap; gap:15px; }
-        .header-title { font-size:24px; font-weight:600; color:#333; display:flex; align-items:center; }
-        .header-specs { font-size:14px; color:#666; display:flex; align-items:center; }
-        .upload-area { border:3px dashed #667eea; border-radius:15px; padding:30px; text-align:center; background:#f8f9ff; cursor:pointer; transition:all 0.3s; margin-bottom:20px; }
-        .upload-area:hover { background:#f0f2ff; border-color:#764ba2; }
-        .upload-area.dragover { background:#e8ebff; border-color:#764ba2; transform:scale(1.02); }
-        .upload-icon { font-size:48px; margin-bottom:10px; }
-        input[type="file"] { display:none; }
-        .btn { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; border:none; padding:12px 30px; border-radius:25px; cursor:pointer; font-size:16px; font-weight:600; transition:all 0.3s; margin:5px; }
-        .btn:hover { transform:translateY(-2px); box-shadow:0 5px 20px rgba(102,126,234,0.4); }
-        .btn:disabled { background:#ccc; cursor:not-allowed; transform:none; }
-        .preview-container { display:none; margin-top:30px; }
-        .preview-container.show { display:block; }
-        .preview-title-centered { text-align:center; font-size:17px; font-weight:600; color:#333; margin-bottom:15px; display:flex; align-items:center; justify-content:center; }
-        .preview-box { background:#f8f9fa; border-radius:10px; padding:20px; display:flex; justify-content:center; align-items:center; min-height:400px; margin-bottom:15px; }
-        .preview-actions { display:flex; justify-content:flex-end; gap:10px; }
-        #labelCanvas { border:2px solid #dee2e6; border-radius:5px; max-width:100%; height:auto; box-shadow:0 5px 15px rgba(0,0,0,0.1); }
-        .crop-controls { background:#f8f9fa; padding:20px; border-radius:10px; margin-bottom:15px; }
-        .crop-controls h3 { margin-bottom:15px; color:#333; }
-        .control-group { margin-bottom:15px; }
-        .control-group label { display:block; margin-bottom:5px; color:#666; font-weight:500; }
-        .control-row { display:flex; gap:10px; align-items:center; }
-        input[type="range"] { flex:1; height:6px; border-radius:3px; background:#dee2e6; outline:none; -webkit-appearance:none; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:#667eea; cursor:pointer; }
-        input[type="range"]::-moz-range-thumb { width:18px; height:18px; border-radius:50%; background:#667eea; cursor:pointer; border:none; }
-        .value-display { min-width:50px; text-align:right; font-weight:600; color:#667eea; }
-        .loading { display:none; text-align:center; padding:20px; color:#667eea; }
-        .loading.show { display:block; }
-        .spinner { border:4px solid #f3f3f3; border-top:4px solid #667eea; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; margin:0 auto 10px; }
-        @keyframes spin { 0% { transform:rotate(0deg); } 100% { transform:rotate(360deg); } }
-        .info-box { background:#e7f3ff; border-left:5px solid #667eea; padding:12px; margin:15px 0; border-radius:4px; font-size:14px; color:#333; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            min-height: 100vh; 
+            padding: 20px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+        }
+        .container { 
+            background: white; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3); 
+            max-width: 900px; 
+            width: 100%; 
+            padding: 40px; 
+        }
+        h1 { color: #333; margin-bottom: 20px; font-size: 28px; display: flex; align-items: center; }
+        .header-compact { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 25px; 
+            flex-wrap: wrap; 
+            gap: 15px; 
+        }
+        .header-title { font-size: 24px; font-weight: 600; color: #333; display: flex; align-items: center; }
+        .header-specs { font-size: 14px; color: #666; display: flex; align-items: center; }
+        .upload-area { 
+            border: 3px dashed #667eea; 
+            border-radius: 15px; 
+            padding: 30px; 
+            text-align: center; 
+            background: #f8f9ff; 
+            cursor: pointer; 
+            transition: all 0.3s; 
+            margin-bottom: 20px; 
+        }
+        .upload-area:hover { background: #f0f2ff; border-color: #764ba2; }
+        .upload-area.dragover { background: #e8ebff; border-color: #764ba2; transform: scale(1.02); }
+        .upload-icon { font-size: 48px; margin-bottom: 10px; }
+        input[type="file"] { display: none; }
+        .btn { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            border: none; 
+            padding: 12px 30px; 
+            border-radius: 25px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            font-weight: 600; 
+            transition: all 0.3s; 
+            margin: 5px; 
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102,126,234,0.4); }
+        .btn:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+        .preview-container { display: none; margin-top: 30px; }
+        .preview-container.show { display: block; }
+        .preview-title-centered { 
+            text-align: center; 
+            font-size: 17px; 
+            font-weight: 600; 
+            color: #333; 
+            margin-bottom: 15px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+        }
+        .preview-box { 
+            background: #f8f9fa; 
+            border-radius: 10px; 
+            padding: 20px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 400px; 
+            margin-bottom: 15px; 
+        }
+        #labelCanvas { 
+            border: 2px solid #dee2e6; 
+            border-radius: 5px; 
+            max-width: 100%; 
+            height: auto; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+        }
+        .crop-controls { 
+            background: #f8f9fa; 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin-bottom: 15px; 
+        }
+        .crop-controls h3 { margin-bottom: 15px; color: #333; }
+        .control-group { margin-bottom: 15px; }
+        .control-group label { display: block; margin-bottom: 5px; color: #666; font-weight: 500; }
+        .control-row { display: flex; gap: 10px; align-items: center; }
+        input[type="range"] { 
+            flex: 1; 
+            height: 6px; 
+            border-radius: 3px; 
+            background: #dee2e6; 
+            outline: none; 
+            -webkit-appearance: none; 
+        }
+        input[type="range"]::-webkit-slider-thumb { 
+            -webkit-appearance: none; 
+            width: 18px; 
+            height: 18px; 
+            border-radius: 50%; 
+            background: #667eea; 
+            cursor: pointer; 
+        }
+        input[type="range"]::-moz-range-thumb { 
+            width: 18px; 
+            height: 18px; 
+            border-radius: 50%; 
+            background: #667eea; 
+            cursor: pointer; 
+            border: none; 
+        }
+        .value-display { min-width: 50px; text-align: right; font-weight: 600; color: #667eea; }
+        .loading { display: none; text-align: center; padding: 20px; color: #667eea; }
+        .loading.show { display: block; }
+        .spinner { 
+            border: 4px solid #f3f3f3; 
+            border-top: 4px solid #667eea; 
+            border-radius: 50%; 
+            width: 40px; 
+            height: 40px; 
+            animation: spin 1s linear infinite; 
+            margin: 0 auto 10px; 
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .info-box { 
+            background: #e7f3ff; 
+            border-left: 5px solid #667eea; 
+            padding: 12px; 
+            margin: 15px 0; 
+            border-radius: 4px; 
+            font-size: 14px; 
+            color: #333; 
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header-compact">
             <div class="header-title">
-                <strong>Convertitore Etichette IPS → Dymo</strong>
+                <strong>Convertitore Etichette IPS → Dymo 4XL</strong>
             </div>
             <div class="header-specs">
-                104 mm × 159 mm | Dymo LabelWriter 4XL
+                104 mm × 159 mm | Stampa "Dimensione reale"
             </div>
         </div>
 
         <div class="info-box">
-            Per etichette IPS (resi Luxottica): trascina il PDF → premi <strong>Auto Crop IPS</strong> → regola se serve → Scarica PDF
+            Per etichette IPS (resi Luxottica): trascina il PDF → premi <strong>Auto Crop IPS</strong> → regola se necessario → Scarica
         </div>
 
         <div class="upload-area" id="uploadArea">
@@ -68,44 +174,45 @@
 
         <div class="loading" id="loading">
             <div class="spinner"></div>
-            <p>Elaborazione PDF in corso...</p>
+            <p>Elaborazione in corso...</p>
         </div>
 
         <div class="crop-controls" id="cropControls" style="display:none;">
-            <h3>Regola area di taglio (per IPS)</h3>
+            <h3>Regola area di taglio</h3>
             <button class="btn" onclick="autoCropIPS()">Auto Crop IPS (consigliato)</button>
+
             <div class="control-group">
                 <label>Posizione Orizzontale (%)</label>
                 <div class="control-row">
-                    <input type="range" id="cropX" min="0" max="100" value="0" step="1">
-                    <span class="value-display" id="cropXValue">0</span>
+                    <input type="range" id="cropX" min="0" max="30" value="8" step="1">
+                    <span class="value-display" id="cropXValue">8</span>
                 </div>
             </div>
             <div class="control-group">
                 <label>Posizione Verticale dall'alto (%)</label>
                 <div class="control-row">
-                    <input type="range" id="cropY" min="0" max="100" value="40" step="1">
-                    <span class="value-display" id="cropYValue">40</span>
+                    <input type="range" id="cropY" min="40" max="65" value="51" step="1">
+                    <span class="value-display" id="cropYValue">51</span>
                 </div>
             </div>
             <div class="control-group">
                 <label>Larghezza taglio (%)</label>
                 <div class="control-row">
-                    <input type="range" id="cropWidth" min="60" max="100" value="100" step="1">
-                    <span class="value-display" id="cropWidthValue">100%</span>
+                    <input type="range" id="cropWidth" min="70" max="100" value="84" step="1">
+                    <span class="value-display" id="cropWidthValue">84%</span>
                 </div>
             </div>
             <div class="control-group">
                 <label>Altezza taglio (%)</label>
                 <div class="control-row">
-                    <input type="range" id="cropHeight" min="40" max="80" value="60" step="1">
-                    <span class="value-display" id="cropHeightValue">60%</span>
+                    <input type="range" id="cropHeight" min="40" max="60" value="49" step="1">
+                    <span class="value-display" id="cropHeightValue">49%</span>
                 </div>
             </div>
+
             <div class="control-actions">
                 <label class="checkbox-label">
-                    <input type="checkbox" id="lockAspect" checked>
-                    Blocca proporzioni
+                    <input type="checkbox" id="lockAspect" checked> Blocca proporzioni
                 </label>
                 <button class="btn" onclick="resetCrop()">Reset</button>
             </div>
@@ -134,8 +241,8 @@
 
         let pdfDoc = null;
         let currentPage = null;
-        let cropSettings = { x: 0, y: 40, width: 100, height: 60 };
-        let aspectRatio = 100 / 60; // ≈1.666 (orizzontale ritagliato)
+        let cropSettings = { x: 8, y: 51, width: 84, height: 49 };
+        let aspectRatio = cropSettings.width / cropSettings.height;
 
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
@@ -144,12 +251,15 @@
         const cropControls = document.getElementById('cropControls');
 
         uploadArea.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', e => { if(e.target.files[0]) processFile(e.target.files[0]); });
+        fileInput.addEventListener('change', e => {
+            if (e.target.files[0]) processFile(e.target.files[0]);
+        });
 
         uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
         uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
         uploadArea.addEventListener('drop', e => {
-            e.preventDefault(); uploadArea.classList.remove('dragover');
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
             const file = e.dataTransfer.files[0];
             if (file?.type === 'application/pdf') processFile(file);
         });
@@ -161,7 +271,7 @@
 
             try {
                 const arrayBuffer = await file.arrayBuffer();
-                pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                pdfDoc = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
                 currentPage = await pdfDoc.getPage(1);
 
                 aspectRatio = cropSettings.width / cropSettings.height;
@@ -173,7 +283,7 @@
                 cropControls.style.display = 'block';
             } catch (err) {
                 console.error(err);
-                alert('Errore nel caricamento PDF. Controlla che sia un file valido.');
+                alert('Errore caricamento PDF');
                 loading.classList.remove('show');
             }
         }
@@ -188,67 +298,74 @@
             ctx.fillStyle = 'white';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Rendering alta qualità
-            const scale = 4.0;
-            const viewport = currentPage.getViewport({ scale });
+            const scale = 4.5;
+            const viewport = currentPage.getViewport({scale});
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = viewport.width;
             tempCanvas.height = viewport.height;
-            const tempCtx = tempCanvas.getContext('2d');
-            await currentPage.render({ canvasContext: tempCtx, viewport }).promise;
+            await currentPage.render({
+                canvasContext: tempCanvas.getContext('2d'),
+                viewport: viewport
+            }).promise;
 
-            // Calcolo crop in pixel
             const cropX = (cropSettings.x / 100) * tempCanvas.width;
             const cropY = (cropSettings.y / 100) * tempCanvas.height;
-            let cropW = (cropSettings.width / 100) * tempCanvas.width;
-            let cropH = (cropSettings.height / 100) * tempCanvas.height;
+            const cropW = (cropSettings.width / 100) * tempCanvas.width;
+            const cropH = (cropSettings.height / 100) * tempCanvas.height;
 
             if (cropW <= 0 || cropH <= 0) return;
 
-            // Fit con preserve aspect
             const fitScale = Math.min(canvas.width / cropW, canvas.height / cropH);
-            const drawW = cropW * fitScale;
-            const drawH = cropH * fitScale;
-            const drawX = (canvas.width - drawW) / 2;
-            const drawY = (canvas.height - drawH) / 2;
+            let drawW = cropW * fitScale;
+            let drawH = cropH * fitScale;
+            let drawX = (canvas.width - drawW) / 2;
+            let drawY = (canvas.height - drawH) / 2;
+
+            // Piccolo offset a destra per centrare meglio (regola questo valore se serve)
+            drawX += 20;  // ≈ 1.5–2 mm a destra – aumenta/diminuisci
 
             ctx.drawImage(tempCanvas, cropX, cropY, cropW, cropH, drawX, drawY, drawW, drawH);
 
-            // Ridimensiona canvas per visualizzazione browser
-            const maxW = 500;
-            const dispScale = maxW / LABEL_WIDTH_PX;
+            // Ridimensiona per visualizzazione
+            const maxDisplay = 500;
+            const dispScale = maxDisplay / LABEL_WIDTH_PX;
             canvas.style.width = (LABEL_WIDTH_PX * dispScale) + 'px';
             canvas.style.height = (LABEL_HEIGHT_PX * dispScale) + 'px';
         }
 
         function autoCropIPS() {
-            cropSettings = { x: 0, y: 38, width: 100, height: 62 };
-            aspectRatio = 100 / 62;
+            cropSettings = { x: 8, y: 51, width: 84, height: 49 };
+            aspectRatio = cropSettings.width / cropSettings.height;
 
-            document.getElementById('cropX').value = 0;    document.getElementById('cropXValue').textContent = 0;
-            document.getElementById('cropY').value = 38;   document.getElementById('cropYValue').textContent = 38;
-            document.getElementById('cropWidth').value = 100; document.getElementById('cropWidthValue').textContent = '100%';
-            document.getElementById('cropHeight').value = 62; document.getElementById('cropHeightValue').textContent = '62%';
+            document.getElementById('cropX').value = 8;
+            document.getElementById('cropXValue').textContent = 8;
+            document.getElementById('cropY').value = 51;
+            document.getElementById('cropYValue').textContent = 51;
+            document.getElementById('cropWidth').value = 84;
+            document.getElementById('cropWidthValue').textContent = '84%';
+            document.getElementById('cropHeight').value = 49;
+            document.getElementById('cropHeightValue').textContent = '49%';
             document.getElementById('lockAspect').checked = true;
 
             updatePositionLimits();
             renderLabel();
         }
 
-        // Listener slider (invariati, ma con update)
         ['cropX','cropY','cropWidth','cropHeight'].forEach(id => {
             document.getElementById(id).addEventListener('input', e => {
-                cropSettings[id.replace('crop','').toLowerCase()] = parseInt(e.target.value);
-                document.getElementById(id + 'Value').textContent = cropSettings[id.replace('crop','').toLowerCase()] + (id.includes('Width')||id.includes('Height') ? '%' : '');
+                const key = id.replace('crop','').toLowerCase();
+                cropSettings[key] = parseInt(e.target.value);
+                document.getElementById(id + 'Value').textContent = cropSettings[key] + (key === 'width' || key === 'height' ? '%' : '');
+                
                 if (document.getElementById('lockAspect').checked && (id === 'cropWidth' || id === 'cropHeight')) {
                     if (id === 'cropWidth') {
                         cropSettings.height = Math.round(cropSettings.width / aspectRatio);
-                        cropSettings.height = Math.max(40, Math.min(80, cropSettings.height));
+                        cropSettings.height = Math.max(40, Math.min(60, cropSettings.height));
                         document.getElementById('cropHeight').value = cropSettings.height;
                         document.getElementById('cropHeightValue').textContent = cropSettings.height + '%';
                     } else {
                         cropSettings.width = Math.round(cropSettings.height * aspectRatio);
-                        cropSettings.width = Math.max(60, Math.min(100, cropSettings.width));
+                        cropSettings.width = Math.max(70, Math.min(100, cropSettings.width));
                         document.getElementById('cropWidth').value = cropSettings.width;
                         document.getElementById('cropWidthValue').textContent = cropSettings.width + '%';
                     }
@@ -265,16 +382,22 @@
         function updatePositionLimits() {
             const maxX = 100 - cropSettings.width;
             const maxY = 100 - cropSettings.height;
-            document.getElementById('cropX').max = maxX;
-            document.getElementById('cropY').max = maxY;
-            if (cropSettings.x > maxX) { cropSettings.x = maxX; document.getElementById('cropX').value = maxX; document.getElementById('cropXValue').textContent = maxX; }
-            if (cropSettings.y > maxY) { cropSettings.y = maxY; document.getElementById('cropY').value = maxY; document.getElementById('cropYValue').textContent = maxY; }
+            document.getElementById('cropX').max = Math.max(0, maxX);
+            document.getElementById('cropY').max = Math.max(0, maxY);
+            if (cropSettings.x > maxX) {
+                cropSettings.x = maxX;
+                document.getElementById('cropX').value = maxX;
+                document.getElementById('cropXValue').textContent = maxX;
+            }
+            if (cropSettings.y > maxY) {
+                cropSettings.y = maxY;
+                document.getElementById('cropY').value = maxY;
+                document.getElementById('cropYValue').textContent = maxY;
+            }
         }
 
         function resetCrop() {
-            cropSettings = { x:0, y:40, width:100, height:60 };
-            aspectRatio = 100/60;
-            autoCropIPS(); // riparte dal preset IPS
+            autoCropIPS();
         }
 
         function downloadPDF() {
@@ -287,11 +410,8 @@
                 format: [LABEL_WIDTH_MM, LABEL_HEIGHT_MM]
             });
             pdf.addImage(imgData, 'PNG', 0, 0, LABEL_WIDTH_MM, LABEL_HEIGHT_MM);
-            pdf.save('etichetta_ips_dymo_104x159.pdf');
+            pdf.save('etichetta_ips_dymo.pdf');
         }
-
-        // Avvia con preset IPS se vuoi
-        // autoCropIPS(); // decommenta se vuoi preset automatico all'apertura
     </script>
 </body>
 </html>

@@ -29,7 +29,7 @@
 </head>
 <body>
     <h1>Ritaglia Etichetta UPS per Dymo 4XL (104×159 mm)</h1>
-    <p>Trascina il PDF A4 qui sotto (o clicca per selezionare)</p>
+    <p>Trascina il PDF A4 qui (o clicca)</p>
 
     <div id="dropZone">
         <p>Trascina il file PDF qui<br>o clicca per sfogliare</p>
@@ -37,7 +37,7 @@
     </div>
 
     <div id="status"></div>
-    <button id="processBtn" disabled onclick="processPdf()">Taglia e Scarica Etichetta</button>
+    <button id="processBtn" disabled onclick="processPdf()">Taglia e Scarica</button>
 
     <script>
         const dropZone = document.getElementById('dropZone');
@@ -46,35 +46,34 @@
         const status = document.getElementById('status');
         let selectedFile = null;
 
-        // Drag & drop
-        ['dragover', 'dragenter'].forEach(evt => dropZone.addEventListener(evt, e => {
-            e.preventDefault();
+        ['dragover', 'dragenter'].forEach(e => dropZone.addEventListener(e, ev => {
+            ev.preventDefault();
             dropZone.classList.add('dragover');
         }));
 
-        ['dragleave', 'drop'].forEach(evt => dropZone.addEventListener(evt, e => {
-            e.preventDefault();
+        ['dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, ev => {
+            ev.preventDefault();
             dropZone.classList.remove('dragover');
         }));
 
-        dropZone.addEventListener('drop', e => {
-            selectedFile = e.dataTransfer.files[0];
+        dropZone.addEventListener('drop', ev => {
+            selectedFile = ev.dataTransfer.files[0];
             handleFile();
         });
 
         dropZone.addEventListener('click', () => fileInput.click());
 
-        fileInput.addEventListener('change', e => {
-            selectedFile = e.target.files[0];
+        fileInput.addEventListener('change', ev => {
+            selectedFile = ev.target.files[0];
             handleFile();
         });
 
         function handleFile() {
             if (selectedFile?.type === 'application/pdf') {
-                status.textContent = `File: ${selectedFile.name} – Pronto`;
+                status.textContent = `File: ${selectedFile.name}`;
                 processBtn.disabled = false;
             } else {
-                status.textContent = 'Solo PDF validi!';
+                status.textContent = 'Carica un PDF valido!';
                 processBtn.disabled = true;
             }
         }
@@ -82,58 +81,56 @@
         async function processPdf() {
             if (!selectedFile) return;
             processBtn.disabled = true;
-            status.textContent = 'Elaborazione...';
+            status.textContent = 'Elaborazione in corso...';
 
             try {
                 const arrayBuffer = await selectedFile.arrayBuffer();
                 const srcDoc = await PDFLib.PDFDocument.load(arrayBuffer);
-                if (srcDoc.getPageCount() === 0) throw new Error('PDF vuoto');
+                if (srcDoc.getPageCount() < 1) throw new Error('PDF senza pagine');
 
                 const tgtDoc = await PDFLib.PDFDocument.create();
 
-                // Copia la pagina originale
-                const [page] = await tgtDoc.copyPages(srcDoc, [0]);
+                // Copia la pagina (usa copyPages per evitare embed issues)
+                const [srcPage] = await tgtDoc.copyPages(srcDoc, [0]);
 
-                // === CROP: impostiamo CropBox per tenere solo la parte bassa ===
-                // Coordinate PDF: bottom-left è (0,0), top-right (595,842) per A4
-                // L'etichetta è nella parte inferiore → crop da y=0 a y=altezza_desiderata
-                const cropHeightPt = 480;   // ← REGOLA QUI (450–510) se esce tagliata o con spazio extra
-                page.setCropBox(0, 0, 595, cropHeightPt);  // x, y_bottom, width, height
+                // Dimensioni target (104×159 mm in punti)
+                const mmToPt = 2.83464567;
+                const tgtW = 104 * mmToPt;   // ≈294.8
+                const tgtH = 159 * mmToPt;   // ≈450.7
 
-                // Dimensioni target label in punti
-                const mm2pt = 2.83464567;
-                const tgtWidth  = 104 * mm2pt;  // ~294.8
-                const tgtHeight = 159 * mm2pt;  // ~450.7
+                // Altezza approssimativa da tenere (bottom part) - regola qui!
+                const labelHeightPt = 480;  // ← Prova 450–520 in base al risultato
 
-                // Scala per fit (preserve aspect ratio)
-                const srcWidth  = page.getWidth();   // ancora 595 (ma cropped in height)
-                const srcHeight = page.getCropBox().height;  // ora = cropHeightPt
-                const scale = Math.min(tgtWidth / srcWidth, tgtHeight / srcHeight);
+                // Scala basata sulla larghezza piena (595 pt A4) e altezza label
+                const srcW = srcPage.getWidth();  // 595
+                const scale = Math.min(tgtW / srcW, tgtH / labelHeightPt);
 
-                const drawWidth  = srcWidth  * scale;
-                const drawHeight = srcHeight * scale;
+                if (!isFinite(scale) || scale <= 0) throw new Error('Scala non valida');
 
-                // Centra
-                const drawX = (tgtWidth  - drawWidth)  / 2;
-                const drawY = (tgtHeight - drawHeight) / 2;
+                const scaledW = srcW * scale;
+                const scaledH = labelHeightPt * scale;
 
-                // Aggiungi pagina label e disegna
-                const labelPage = tgtDoc.addPage([tgtWidth, tgtHeight]);
-                labelPage.drawPage(page, {
+                // Posizionamento: centra orizzontale, sposta in basso per mostrare solo la parte bassa
+                const drawX = (tgtW - scaledW) / 2;
+                const drawY = tgtH - scaledH;  // ← Sposta in fondo → mostra bottom
+
+                const labelPage = tgtDoc.addPage([tgtW, tgtH]);
+
+                labelPage.drawPage(srcPage, {
                     x: drawX,
                     y: drawY,
                     xScale: scale,
                     yScale: scale,
-                    // rotate: PDFLib.degrees(0),  // se serve ruota a 90: degrees(90) e inverti width/height
                 });
 
                 const pdfBytes = await tgtDoc.save();
-                download(pdfBytes, 'etichetta_104x159_ritagliata.pdf', 'application/pdf');
+                download(pdfBytes, 'etichetta_ritagliata_104x159.pdf', 'application/pdf');
 
-                status.textContent = 'Fatto! Scaricato. Stampa in "Dimensione reale" / "Actual Size" sulla Dymo.';
+                status.textContent = 'Fatto! Scaricato. Stampa con "Actual Size" sulla Dymo.';
+                console.log('Successo - scale:', scale, 'drawY:', drawY);
             } catch (err) {
-                console.error(err);
-                status.textContent = 'Errore: ' + (err.message || 'Controlla console (F12)');
+                console.error('Errore dettagliato:', err);
+                status.textContent = 'Errore: ' + (err.message || 'Controlla console F12 per dettagli');
             } finally {
                 processBtn.disabled = false;
             }

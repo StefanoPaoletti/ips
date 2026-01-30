@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convertitore Etichette Dymo 104x159mm</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+        }
+
+        .specs {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+
+        .specs strong {
+            color: #667eea;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            background: #f0f2ff;
+            border-color: #764ba2;
+        }
+
+        .upload-area.dragover {
+            background: #e8ebff;
+            border-color: #764ba2;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .preview-container {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .preview-container.show {
+            display: block;
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .preview-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .preview-box {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 400px;
+        }
+
+        #labelCanvas {
+            border: 2px solid #dee2e6;
+            border-radius: 5px;
+            max-width: 100%;
+            height: auto;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .crop-controls {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .crop-controls h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .control-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: #dee2e6;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+
+        .value-display {
+            min-width: 50px;
+            text-align: right;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 8px;">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            Convertitore Etichette Dymo
+        </h1>
+
+        <div class="specs">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 5px;">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <line x1="3" y1="9" x2="21" y2="9"/>
+                <line x1="9" y1="21" x2="9" y2="9"/>
+            </svg>
+            <strong>Dimensioni etichetta:</strong> 104mm × 159mm (4" × 6.26") | 
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin: 0 5px;">
+                <polyline points="6 9 6 2 18 2 18 9"/>
+                <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
+                <rect x="6" y="14" width="12" height="8"/>
+            </svg>
+            <strong>Stampante:</strong> Dymo LabelWriter 4XL
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="12" y1="18" x2="12" y2="12"/>
+                    <line x1="9" y1="15" x2="15" y2="15"/>
+                </svg>
+            </div>
+            <h3>Carica il PDF del corriere</h3>
+            <p style="color: #666; margin-top: 10px;">Clicca qui o trascina il file PDF</p>
+            <input type="file" id="fileInput" accept=".pdf">
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Elaborazione in corso...</p>
+        </div>
+
+        <div class="crop-controls" id="cropControls" style="display: none;">
+            <h3>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 8px;">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 1v6m0 6v6m5.2-13.2l-4.2 4.2m0 6l4.2 4.2M23 12h-6m-6 0H1m18.2 5.2l-4.2-4.2m0-6l4.2-4.2"/>
+                </svg>
+                Regola l'area di taglio
+            </h3>
+            
+            <div class="control-group">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="lockAspect" checked style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 5px;">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0110 0v4"/>
+                    </svg>
+                    Blocca proporzioni
+                </label>
+            </div>
+
+            <div class="control-group">
+                <label>Posizione X (orizzontale)</label>
+                <div class="control-row">
+                    <input type="range" id="cropX" min="0" max="100" value="0" step="1">
+                    <span class="value-display" id="cropXValue">0</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Posizione Y (verticale)</label>
+                <div class="control-row">
+                    <input type="range" id="cropY" min="0" max="100" value="0" step="1">
+                    <span class="value-display" id="cropYValue">0</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Larghezza taglio (%)</label>
+                <div class="control-row">
+                    <input type="range" id="cropWidth" min="10" max="100" value="50" step="1">
+                    <span class="value-display" id="cropWidthValue">50%</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Altezza taglio (%)</label>
+                <div class="control-row">
+                    <input type="range" id="cropHeight" min="10" max="100" value="70" step="1">
+                    <span class="value-display" id="cropHeightValue">70%</span>
+                </div>
+            </div>
+
+            <button class="btn" onclick="resetCrop()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 5px;">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+                </svg>
+                Reset
+            </button>
+        </div>
+
+        <div class="preview-container" id="previewContainer">
+            <div class="preview-header">
+                <div class="preview-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 8px;">
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    Anteprima etichetta 104×159mm
+                </div>
+                <div>
+                    <button class="btn" onclick="downloadPDF()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 5px;">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Scarica PDF
+                    </button>
+                    <button class="btn" onclick="printLabel()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 5px;">
+                            <polyline points="6 9 6 2 18 2 18 9"/>
+                            <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
+                            <rect x="6" y="14" width="12" height="8"/>
+                        </svg>
+                        Stampa
+                    </button>
+                </div>
+            </div>
+            <div class="preview-box">
+                <canvas id="labelCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configurazione PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // Dimensioni etichetta Dymo in mm
+        const LABEL_WIDTH_MM = 104;
+        const LABEL_HEIGHT_MM = 159;
+        
+        // Risoluzione per la stampa (DPI)
+        const DPI = 300;
+        const MM_TO_INCH = 0.0393701;
+        
+        // Dimensioni in pixel alla risoluzione di stampa
+        const LABEL_WIDTH_PX = Math.round(LABEL_WIDTH_MM * MM_TO_INCH * DPI);
+        const LABEL_HEIGHT_PX = Math.round(LABEL_HEIGHT_MM * MM_TO_INCH * DPI);
+
+        let pdfDoc = null;
+        let currentPage = null;
+        let cropSettings = {
+            x: 0,
+            y: 0,
+            width: 50,
+            height: 70
+        };
+        let aspectRatio = null; // Will store the initial aspect ratio
+
+        // Gestione upload
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const loading = document.getElementById('loading');
+        const previewContainer = document.getElementById('previewContainer');
+        const cropControls = document.getElementById('cropControls');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type === 'application/pdf') {
+                processFile(file);
+            }
+        });
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+
+        async function processFile(file) {
+            loading.classList.add('show');
+            previewContainer.classList.remove('show');
+            cropControls.style.display = 'none';
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+                currentPage = await pdfDoc.getPage(1);
+                
+                // Initialize aspect ratio based on default crop settings
+                aspectRatio = cropSettings.width / cropSettings.height;
+                
+                await renderLabel();
+                
+                loading.classList.remove('show');
+                previewContainer.classList.add('show');
+                cropControls.style.display = 'block';
+            } catch (error) {
+                console.error('Errore durante l\'elaborazione:', error);
+                alert('Errore durante l\'elaborazione del PDF. Riprova.');
+                loading.classList.remove('show');
+            }
+        }
+
+        async function renderLabel() {
+            const canvas = document.getElementById('labelCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Imposta dimensioni canvas
+            canvas.width = LABEL_WIDTH_PX;
+            canvas.height = LABEL_HEIGHT_PX;
+
+            // Sfondo bianco
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Render PDF ad alta risoluzione
+            const viewport = currentPage.getViewport({ scale: 3.0 });
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = viewport.width;
+            tempCanvas.height = viewport.height;
+
+            await currentPage.render({
+                canvasContext: tempCtx,
+                viewport: viewport
+            }).promise;
+
+            // Calcola area di taglio
+            const cropX = (cropSettings.x / 100) * tempCanvas.width;
+            const cropY = (cropSettings.y / 100) * tempCanvas.height;
+            const cropWidth = (cropSettings.width / 100) * tempCanvas.width;
+            const cropHeight = (cropSettings.height / 100) * tempCanvas.height;
+
+            // Scala per adattare all'etichetta mantenendo proporzioni
+            const scale = Math.min(
+                canvas.width / cropWidth,
+                canvas.height / cropHeight
+            );
+
+            const scaledWidth = cropWidth * scale;
+            const scaledHeight = cropHeight * scale;
+            const x = (canvas.width - scaledWidth) / 2;
+            const y = (canvas.height - scaledHeight) / 2;
+
+            // Disegna l'area ritagliata
+            ctx.drawImage(
+                tempCanvas,
+                cropX, cropY, cropWidth, cropHeight,
+                x, y, scaledWidth, scaledHeight
+            );
+
+            // Aggiorna l'anteprima (ridimensiona per visualizzazione)
+            const maxDisplayWidth = 400;
+            const displayScale = maxDisplayWidth / LABEL_WIDTH_PX;
+            canvas.style.width = LABEL_WIDTH_PX * displayScale + 'px';
+            canvas.style.height = LABEL_HEIGHT_PX * displayScale + 'px';
+        }
+
+        // Gestione controlli di taglio
+        document.getElementById('cropX').addEventListener('input', (e) => {
+            cropSettings.x = parseInt(e.target.value);
+            document.getElementById('cropXValue').textContent = cropSettings.x;
+            renderLabel();
+        });
+
+        document.getElementById('cropY').addEventListener('input', (e) => {
+            cropSettings.y = parseInt(e.target.value);
+            document.getElementById('cropYValue').textContent = cropSettings.y;
+            renderLabel();
+        });
+
+        document.getElementById('cropWidth').addEventListener('input', (e) => {
+            cropSettings.width = parseInt(e.target.value);
+            document.getElementById('cropWidthValue').textContent = cropSettings.width + '%';
+            
+            // Se aspect ratio è bloccato, aggiorna anche l'altezza
+            if (document.getElementById('lockAspect').checked && aspectRatio) {
+                cropSettings.height = Math.round(cropSettings.width / aspectRatio);
+                cropSettings.height = Math.max(10, Math.min(100, cropSettings.height)); // Clamp tra 10 e 100
+                document.getElementById('cropHeight').value = cropSettings.height;
+                document.getElementById('cropHeightValue').textContent = cropSettings.height + '%';
+            }
+            
+            renderLabel();
+        });
+
+        document.getElementById('cropHeight').addEventListener('input', (e) => {
+            cropSettings.height = parseInt(e.target.value);
+            document.getElementById('cropHeightValue').textContent = cropSettings.height + '%';
+            
+            // Se aspect ratio è bloccato, aggiorna anche la larghezza
+            if (document.getElementById('lockAspect').checked && aspectRatio) {
+                cropSettings.width = Math.round(cropSettings.height * aspectRatio);
+                cropSettings.width = Math.max(10, Math.min(100, cropSettings.width)); // Clamp tra 10 e 100
+                document.getElementById('cropWidth').value = cropSettings.width;
+                document.getElementById('cropWidthValue').textContent = cropSettings.width + '%';
+            }
+            
+            renderLabel();
+        });
+
+        // Gestione blocco aspect ratio
+        document.getElementById('lockAspect').addEventListener('change', (e) => {
+            if (e.target.checked) {
+                // Quando si attiva il lock, salva il ratio corrente
+                aspectRatio = cropSettings.width / cropSettings.height;
+            }
+        });
+
+        function resetCrop() {
+            cropSettings = { x: 0, y: 0, width: 50, height: 70 };
+            aspectRatio = cropSettings.width / cropSettings.height;
+            
+            document.getElementById('cropX').value = 0;
+            document.getElementById('cropY').value = 0;
+            document.getElementById('cropWidth').value = 50;
+            document.getElementById('cropHeight').value = 70;
+            document.getElementById('cropXValue').textContent = 0;
+            document.getElementById('cropYValue').textContent = 0;
+            document.getElementById('cropWidthValue').textContent = '50%';
+            document.getElementById('cropHeightValue').textContent = '70%';
+            document.getElementById('lockAspect').checked = true;
+            
+            renderLabel();
+        }
+
+        function downloadPDF() {
+            const canvas = document.getElementById('labelCanvas');
+            const imgData = canvas.toDataURL('image/jpeg', 1.0);
+
+            const { jsPDF } = window.jspdf;
+            
+            // Crea PDF con dimensioni esatte dell'etichetta
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: [LABEL_WIDTH_MM, LABEL_HEIGHT_MM]
+            });
+
+            // Aggiungi immagine al PDF
+            pdf.addImage(imgData, 'JPEG', 0, 0, LABEL_WIDTH_MM, LABEL_HEIGHT_MM);
+            
+            // Scarica
+            pdf.save('etichetta-dymo-104x159.pdf');
+        }
+
+        function printLabel() {
+            const canvas = document.getElementById('labelCanvas');
+            const imgData = canvas.toDataURL('image/jpeg', 1.0);
+
+            // Crea finestra di stampa
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Stampa Etichetta Dymo</title>
+                    <style>
+                        @page {
+                            size: 104mm 159mm;
+                            margin: 0;
+                        }
+                        body {
+                            margin: 0;
+                            padding: 0;
+                        }
+                        img {
+                            width: 104mm;
+                            height: 159mm;
+                            display: block;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <img src="${imgData}" />
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            
+            printWindow.onload = function() {
+                printWindow.print();
+            };
+        }
+    </script>
+</body>
+</html>

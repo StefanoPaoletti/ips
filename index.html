@@ -3,74 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Etichette Ottica Paoletti</title>
+    <title>Etichette Ottica Paoletti - Ritaglia PDF UPS</title>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script src="https://unpkg.com/downloadjs@1.4.7/download.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-        input, button { margin: 20px; }
-        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
-        button:hover { background: #0056b3; }
+        body { font-family: Arial, sans-serif; text-align: center; padding: 40px; background: #f8f9fa; }
+        h1 { color: #333; }
+        #dropZone {
+            border: 3px dashed #007bff;
+            border-radius: 12px;
+            padding: 60px 20px;
+            margin: 30px auto;
+            max-width: 600px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        #dropZone.dragover { background: #e7f3ff; border-color: #0056b3; }
+        #status { margin: 20px; font-weight: bold; color: #555; }
+        button { padding: 12px 30px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 18px; }
+        button:hover { background: #218838; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        input[type="file"] { display: none; }
     </style>
 </head>
 <body>
-    <h1>Carica il PDF UPS A4</h1>
-    <p>Trascina o seleziona il file PDF, poi premi "Taglia" per scaricare l'etichetta 104x159mm.</p>
-    <input type="file" id="pdfInput" accept=".pdf">
-    <button onclick="processPdf()">Taglia</button>
+    <h1>Ritaglia Etichetta UPS per Dymo 4XL (104×159 mm)</h1>
+    <p>Trascina qui il PDF A4 ricevuto dal corriere (o clicca per selezionare)</p>
+
+    <div id="dropZone">
+        <p>Trascina il file PDF qui<br>o clicca per sfogliare</p>
+        <input type="file" id="pdfInput" accept=".pdf">
+    </div>
+
+    <div id="status"></div>
+    <button id="processBtn" disabled onclick="processPdf()">Taglia e Scarica Etichetta</button>
 
     <script>
-        async function processPdf() {
-            const file = document.getElementById('pdfInput').files[0];
-            if (!file) return alert('Carica un PDF prima!');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('pdfInput');
+        const processBtn = document.getElementById('processBtn');
+        const status = document.getElementById('status');
+        let selectedFile = null;
 
-            const arrayBuffer = await file.arrayBuffer();
-            const inputDoc = await PDFLib.PDFDocument.load(arrayBuffer);
-
-            // Crea un nuovo PDF
-            const outputDoc = await PDFLib.PDFDocument.create();
-
-            // Embed della pagina originale (solo la prima)
-            const [embeddedPage] = await outputDoc.embedPdfPages(inputDoc, [0]);
-
-            // Dimensioni originali A4 in punti (pt): 595x842
-            // Crop del label: bottom 442pt (basato sul tuo esempio, da y=400 a 842 in coord screen)
-            // In coord PDF: crop box [0, 0, 595, 442]
-            const cropWidth = 595;
-            const cropHeight = 442;
-
-            // Target: 104mm x 159mm ≈ 294pt x 450pt (portrait)
-            const targetWidth = 294;
-            const targetHeight = 450;
-
-            // Aggiungi una nuova pagina nel target size
-            const newPage = outputDoc.addPage([targetWidth, targetHeight]);
-
-            // Calcola scala per fit dopo rotazione 90° (original wide diventa high)
-            const rotatedOrigWidth = cropHeight; // dopo rotate, width = old height
-            const rotatedOrigHeight = cropWidth; // height = old width
-            const scale = Math.min(targetWidth / rotatedOrigWidth, targetHeight / rotatedOrigHeight);
-
-            // Dimensioni dopo scala
-            const scaledWidth = rotatedOrigWidth * scale;
-            const scaledHeight = rotatedOrigHeight * scale;
-
-            // Centra verticalmente (x=0, y = (targetHeight - scaledHeight)/2)
-            const x = 0;
-            const y = (targetHeight - scaledHeight) / 2;
-
-            // Disegna la pagina embedded con crop implicito (PDF-LIB draw usa crop box se set), rotate 90° clockwise
-            newPage.drawPage(embeddedPage, {
-                x,
-                y,
-                xScale: scale,
-                yScale: scale,
-                rotate: PDFLib.degrees(90),
+        // Gestione drag & drop
+        ['dragover', 'dragenter'].forEach(event => {
+            dropZone.addEventListener(event, e => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
             });
+        });
 
-            // Salva e scarica
-            const pdfBytes = await outputDoc.save();
-            download(pdfBytes, 'etichetta_104x159.pdf', 'application/pdf');
+        ['dragleave', 'drop'].forEach(event => {
+            dropZone.addEventListener(event, e => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            });
+        });
+
+        dropZone.addEventListener('drop', e => {
+            selectedFile = e.dataTransfer.files[0];
+            if (selectedFile && selectedFile.type === 'application/pdf') {
+                status.textContent = `File caricato: ${selectedFile.name}`;
+                processBtn.disabled = false;
+            } else {
+                status.textContent = 'Per favore carica un file PDF valido!';
+            }
+        });
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', e => {
+            selectedFile = e.target.files[0];
+            if (selectedFile) {
+                status.textContent = `File selezionato: ${selectedFile.name}`;
+                processBtn.disabled = false;
+            }
+        });
+
+        async function processPdf() {
+            if (!selectedFile) return alert('Carica prima un PDF!');
+            processBtn.disabled = true;
+            status.textContent = 'Elaborazione in corso...';
+
+            try {
+                const arrayBuffer = await selectedFile.arrayBuffer();
+                const inputDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+
+                if (inputDoc.getPageCount() === 0) throw new Error('PDF vuoto!');
+
+                const outputDoc = await PDFLib.PDFDocument.create();
+                const [embeddedPage] = await outputDoc.embedPdfPages(inputDoc, [0]);
+
+                // Dimensioni target in punti (1 mm ≈ 2.83464567 pt)
+                const targetWidth  = 104 * 2.83464567;  // ≈ 294.8 pt
+                const targetHeight = 159 * 2.83464567;  // ≈ 450.7 pt
+
+                // Crop approssimativo: parte bassa dell'A4 (y da 0 a ~460 pt, ma regolabile)
+                // Nel tuo PDF l'etichetta è circa da y=0 (bottom) a y=460-470 pt
+                const cropHeight = 460;  // Regola questo valore se serve (prova 440-480)
+
+                // Calcola scala per fit (preserve aspect ratio)
+                const origWidth  = embeddedPage.width;   // 595 pt A4
+                const origHeight = cropHeight;           // solo la parte bassa
+                const scale = Math.min(targetWidth / origWidth, targetHeight / origHeight);
+
+                const scaledWidth  = origWidth  * scale;
+                const scaledHeight = origHeight * scale;
+
+                // Centra orizzontalmente e verticalmente
+                const x = (targetWidth  - scaledWidth)  / 2;
+                const y = (targetHeight - scaledHeight) / 2;
+
+                const newPage = outputDoc.addPage([targetWidth, targetHeight]);
+
+                // Disegna SOLO la parte bassa scalata (drawPage disegna tutto, ma scaliamo e posizioniamo)
+                // Nota: non c'è crop diretto in drawPage, quindi scaliamo per far entrare solo la parte desiderata
+                newPage.drawPage(embeddedPage, {
+                    x: x,
+                    y: y,
+                    xScale: scale,
+                    yScale: scale,
+                    // rotate: PDFLib.degrees(0),  // 0 gradi = no rotazione
+                });
+
+                const pdfBytes = await outputDoc.save();
+                download(pdfBytes, 'etichetta_ritagliata_104x159.pdf', 'application/pdf');
+
+                status.textContent = 'Fatto! Etichetta scaricata. Prova a stamparla con "Actual Size".';
+            } catch (err) {
+                console.error(err);
+                status.textContent = 'Errore: ' + (err.message || 'qualcosa è andato storto');
+            } finally {
+                processBtn.disabled = false;
+            }
         }
     </script>
 </body>

@@ -46,7 +46,7 @@
         const status = document.getElementById('status');
         let selectedFile = null;
 
-        // Drag & drop styling
+        // Drag & drop
         ['dragover', 'dragenter'].forEach(evt => dropZone.addEventListener(evt, e => {
             e.preventDefault();
             dropZone.classList.add('dragover');
@@ -59,22 +59,22 @@
 
         dropZone.addEventListener('drop', e => {
             selectedFile = e.dataTransfer.files[0];
-            handleFileSelect();
+            handleFile();
         });
 
         dropZone.addEventListener('click', () => fileInput.click());
 
         fileInput.addEventListener('change', e => {
             selectedFile = e.target.files[0];
-            handleFileSelect();
+            handleFile();
         });
 
-        function handleFileSelect() {
-            if (selectedFile && selectedFile.type === 'application/pdf') {
-                status.textContent = `File pronto: ${selectedFile.name}`;
+        function handleFile() {
+            if (selectedFile?.type === 'application/pdf') {
+                status.textContent = `File: ${selectedFile.name} – Pronto`;
                 processBtn.disabled = false;
             } else {
-                status.textContent = 'Carica un file PDF valido!';
+                status.textContent = 'Solo PDF validi!';
                 processBtn.disabled = true;
             }
         }
@@ -82,56 +82,58 @@
         async function processPdf() {
             if (!selectedFile) return;
             processBtn.disabled = true;
-            status.textContent = 'Elaborazione in corso...';
+            status.textContent = 'Elaborazione...';
 
             try {
                 const arrayBuffer = await selectedFile.arrayBuffer();
-                const sourceDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+                const srcDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+                if (srcDoc.getPageCount() === 0) throw new Error('PDF vuoto');
 
-                if (sourceDoc.getPageCount() === 0) throw new Error('PDF senza pagine!');
+                const tgtDoc = await PDFLib.PDFDocument.create();
 
-                const targetDoc = await PDFLib.PDFDocument.create();
+                // Copia la pagina originale
+                const [page] = await tgtDoc.copyPages(srcDoc, [0]);
 
-                // Copia la pagina 0 (l'unica nel tuo caso)
-                const [copiedPage] = await targetDoc.copyPages(sourceDoc, [0]);
+                // === CROP: impostiamo CropBox per tenere solo la parte bassa ===
+                // Coordinate PDF: bottom-left è (0,0), top-right (595,842) per A4
+                // L'etichetta è nella parte inferiore → crop da y=0 a y=altezza_desiderata
+                const cropHeightPt = 480;   // ← REGOLA QUI (450–510) se esce tagliata o con spazio extra
+                page.setCropBox(0, 0, 595, cropHeightPt);  // x, y_bottom, width, height
 
-                // Dimensioni target in punti (precisione mm → pt)
-                const mmToPt = 2.83464567;
-                const targetW = 104 * mmToPt;   // ≈294.8 pt
-                const targetH = 159 * mmToPt;   // ≈450.7 pt
+                // Dimensioni target label in punti
+                const mm2pt = 2.83464567;
+                const tgtWidth  = 104 * mm2pt;  // ~294.8
+                const tgtHeight = 159 * mm2pt;  // ~450.7
 
-                // Altezza da tenere (bottom part): regola qui se l'etichetta è tagliata o ha troppo spazio
-                const cropH = 480;  // ← Prova valori tra 450 e 510 se necessario
+                // Scala per fit (preserve aspect ratio)
+                const srcWidth  = page.getWidth();   // ancora 595 (ma cropped in height)
+                const srcHeight = page.getCropBox().height;  // ora = cropHeightPt
+                const scale = Math.min(tgtWidth / srcWidth, tgtHeight / srcHeight);
 
-                // Scala per far entrare la porzione bassa nel target (preserve aspect)
-                const origW = copiedPage.getWidth();     // 595 pt A4
-                const scale  = Math.min(targetW / origW, targetH / cropH);
-
-                const scaledW = origW * scale;
-                const scaledH = cropH * scale;
+                const drawWidth  = srcWidth  * scale;
+                const drawHeight = srcHeight * scale;
 
                 // Centra
-                const drawX = (targetW - scaledW) / 2;
-                const drawY = (targetH - scaledH) / 2;
+                const drawX = (tgtWidth  - drawWidth)  / 2;
+                const drawY = (tgtHeight - drawHeight) / 2;
 
-                // Crea pagina target e disegna SOLO la porzione bassa
-                const newPage = targetDoc.addPage([targetW, targetH]);
-
-                newPage.drawPage(copiedPage, {
+                // Aggiungi pagina label e disegna
+                const labelPage = tgtDoc.addPage([tgtWidth, tgtHeight]);
+                labelPage.drawPage(page, {
                     x: drawX,
                     y: drawY,
-                    width: scaledW,          // ← Limita la larghezza disegnata
-                    height: scaledH,         // ← Limita l'altezza disegnata (effettua il crop verticale)
-                    // Se vuoi ruotare di 90°: rotate: PDFLib.degrees(90), e inverti targetW/targetH + calcoli
+                    xScale: scale,
+                    yScale: scale,
+                    // rotate: PDFLib.degrees(0),  // se serve ruota a 90: degrees(90) e inverti width/height
                 });
 
-                const pdfBytes = await targetDoc.save();
-                download(pdfBytes, 'etichetta_ritagliata_104x159.pdf', 'application/pdf');
+                const pdfBytes = await tgtDoc.save();
+                download(pdfBytes, 'etichetta_104x159_ritagliata.pdf', 'application/pdf');
 
-                status.textContent = 'Successo! File scaricato. Stampa con "Actual Size" / "Dimensione reale" sulla Dymo.';
+                status.textContent = 'Fatto! Scaricato. Stampa in "Dimensione reale" / "Actual Size" sulla Dymo.';
             } catch (err) {
                 console.error(err);
-                status.textContent = 'Errore: ' + (err.message || 'problema sconosciuto – controlla console (F12)');
+                status.textContent = 'Errore: ' + (err.message || 'Controlla console (F12)');
             } finally {
                 processBtn.disabled = false;
             }
